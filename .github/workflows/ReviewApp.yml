@@ -1,0 +1,54 @@
+name: PACT ReviewApp
+on: # define for which events, branches and tags the action is to be performed
+  pull_request:
+    branches:
+    - master
+    tags:
+    - "*"
+    types:
+    - opened
+    - synchronize
+    - reopened
+    - ready_for_review
+  pull_request_review:
+    branches:
+    - master
+    tags:
+    - "*"
+
+jobs:
+  review-app:
+    runs-on: [self-hosted, Linux, division_pact]
+    container:
+      image: harbor.pact.intel.com/common/review-app-env:2.0
+    if: |
+      (github.event_name == 'pull_request_review' && github.event.review.state != 'commented') ||
+      (github.event_name == 'pull_request')
+    steps:
+    - name: Checkout main repository
+      uses: actions/checkout@v2
+        
+    - name: Checkout ReviewApp
+      uses: actions/checkout@v2
+      with:
+        repository: intel-innersource/frameworks.devops.process-automation.review-app
+        ref: master
+        token: ${{ secrets.REVIEW_BOT_TOKEN }}
+        
+    - name: Checkout action repository
+      uses: actions/checkout@v2
+      with:
+        repository: intel-innersource/frameworks.devops.process-automation.github-actions
+        ref: main
+        token: ${{ secrets.REVIEW_BOT_TOKEN }}
+        path: ./.actions
+    
+    - name: Call ReviewApp
+      uses: ./.actions/review-app/
+      with: 
+        review_bot_token: ${{ secrets.REVIEW_BOT_TOKEN }}
+        pull_request_id: ${{ github.event.pull_request.number }}
+        repository: ${{ github.event.repository.full_name }}
+        checkout_token: ${{ secrets.REVIEW_BOT_TOKEN }}
+        # Line below is OPTIONAL!
+        parameters: --multigroups_warning # This is optional, provide only if you want some of the optional functions described in "Dependencies" section.
